@@ -7,14 +7,16 @@ export WORDPRESS_DB_NAME="${DB_NAME}"
 export WORDPRESS_DB_USER="${DB_USER}"
 export WORDPRESS_DB_PASSWORD="${DB_PASSWORD}"
 echo "[dailey] WordPress DB -> ${WORDPRESS_DB_HOST}/${WORDPRESS_DB_NAME} as ${WORDPRESS_DB_USER}"
-# Seed wp-content from the image when the mounted volume is empty (first boot).
-# The volume mount at /var/www/html/wp-content shadows the baked copy, so an
-# empty Longhorn volume would otherwise yield a site with no default themes.
-# /usr/src/wordpress/wp-content is OUTSIDE the mount, so it survives as the seed.
-if [ -d /var/www/html/wp-content ] && [ -z "$(ls -A /var/www/html/wp-content 2>/dev/null)" ]; then
+# Seed wp-content from the image on first boot, then drop a sentinel. Using a
+# marker (not an empty-dir check) means an interrupted first-boot copy re-seeds
+# and completes on the next start instead of leaving a half-populated volume.
+# The copy is idempotent. /usr/src/wordpress/wp-content is OUTSIDE the mount, so
+# it always survives as the seed source.
+if [ -d /var/www/html/wp-content ] && [ ! -f /var/www/html/wp-content/.dailey-seeded ]; then
   if [ -d /usr/src/wordpress/wp-content ]; then
-    echo "[dailey] seeding empty wp-content volume from image"
+    echo "[dailey] seeding wp-content volume from image"
     cp -a /usr/src/wordpress/wp-content/. /var/www/html/wp-content/
+    touch /var/www/html/wp-content/.dailey-seeded
   fi
 fi
 exec docker-entrypoint.sh "$@"
