@@ -1,25 +1,31 @@
 # WordPress on Dailey OS — deploy straight from GitHub.
 #
-# Two adaptations make the stock image work on DOS:
+# Three adaptations make the stock image work on DOS's hardened runtime:
 #
 # 1. DB env names. DOS provisions a managed MySQL DB and injects
 #    DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD. The official wordpress
 #    image instead reads WORDPRESS_DB_*, so dailey-entrypoint.sh maps them —
-#    which means WordPress boots already-connected and SKIPS the "set up your
+#    so WordPress boots already-connected and SKIPS the "set up your
 #    database" install screen.
 #
-# 2. Hardened runtime. DOS runs containers without CAP_CHOWN. The stock
-#    entrypoint copies WordPress into /var/www/html at *runtime* and chowns it
-#    to www-data, which fails ("Operation not permitted") and crash-loops. So
-#    we pre-populate /var/www/html here at BUILD time (full privileges), with
-#    ownership baked in. At runtime the entrypoint sees WordPress already
-#    present, skips the copy+chown, and goes straight to wp-config generation.
+# 2. No runtime file-copy/chown. DOS runs containers without CAP_CHOWN, and
+#    the stock entrypoint copies WordPress into /var/www/html and chowns it at
+#    runtime (crash: "Operation not permitted"). So we pre-populate the webroot
+#    here at BUILD time, where we have full privileges.
+#
+# 3. No runtime wp-config write. The stock entrypoint then tries to *write*
+#    wp-config.php into /var/www/html at runtime (crash: "Permission denied"
+#    on the hardened FS). So we bake wp-config.php at build time from the
+#    image's docker variant (it reads the WORDPRESS_DB_* env at runtime), and
+#    make the tree group-writable for gid 0 — the standard pattern for
+#    containers that run as an arbitrary uid in the root group.
 FROM wordpress:6-apache
 
-# Bake WordPress into the webroot at build time, owned by www-data (uid 33).
 RUN set -eux; \
     cp -a /usr/src/wordpress/. /var/www/html/; \
-    chown -R www-data:www-data /var/www/html
+    cp /var/www/html/wp-config-docker.php /var/www/html/wp-config.php; \
+    chown -R www-data:0 /var/www/html; \
+    chmod -R g=u /var/www/html
 
 COPY dailey-entrypoint.sh /usr/local/bin/dailey-entrypoint.sh
 RUN chmod +x /usr/local/bin/dailey-entrypoint.sh
