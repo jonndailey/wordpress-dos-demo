@@ -1,0 +1,7 @@
+{
+  "volume": {
+    "size": "10Gi",
+    "mountPath": "/var/www/html/wp-content",
+    "class": "longhorn"
+  }
+}
