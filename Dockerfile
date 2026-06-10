@@ -25,9 +25,7 @@ FROM wordpress:6-apache
 RUN set -eux; \
     cp -a /usr/src/wordpress/. /var/www/html/; \
     cp /var/www/html/wp-config-docker.php /var/www/html/wp-config.php; \
-    sed -ri 's/^export APACHE_RUN_USER=.*/export APACHE_RUN_USER=root/; \
-             s/^export APACHE_RUN_GROUP=.*/export APACHE_RUN_GROUP=root/' \
-            /etc/apache2/envvars; \
+    printf '\nexport APACHE_RUN_USER=root\nexport APACHE_RUN_GROUP=root\n' >> /etc/apache2/envvars; \
     chown -R root:0 /var/www/html; \
     chmod -R g=u /var/www/html
 
