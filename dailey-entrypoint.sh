@@ -7,6 +7,12 @@ export WORDPRESS_DB_NAME="${DB_NAME}"
 export WORDPRESS_DB_USER="${DB_USER}"
 export WORDPRESS_DB_PASSWORD="${DB_PASSWORD}"
 echo "[dailey] WordPress DB -> ${WORDPRESS_DB_HOST}/${WORDPRESS_DB_NAME} as ${WORDPRESS_DB_USER}"
+# Point WordPress at the image-baked mu-plugins dir (the wp-content volume
+# shadows wp-content/mu-plugins). Prepended to WORDPRESS_CONFIG_EXTRA so any
+# user-supplied config still applies after ours.
+DAILEY_MU_CONFIG="define('WPMU_PLUGIN_DIR', '/var/www/dailey-mu-plugins');"
+export WORDPRESS_CONFIG_EXTRA="${DAILEY_MU_CONFIG}
+${WORDPRESS_CONFIG_EXTRA:-}"
 # Seed wp-content from the image on first boot, then drop a sentinel. Using a
 # marker (not an empty-dir check) means an interrupted first-boot copy re-seeds
 # and completes on the next start instead of leaving a half-populated volume.

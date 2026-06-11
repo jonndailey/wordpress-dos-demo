@@ -24,6 +24,17 @@ The managed **MySQL database is persistent**. But files written to the container
 
 If you prefer immutable infrastructure, bake your themes/plugins into the image instead (COPY them into `wp-content/` in the Dockerfile) and keep only uploads on a volume.
 
+## Media offload (R2 / assets.dailey.cloud)
+
+When public storage is enabled on the project, DOS injects `S3_PUBLIC_*` env vars. The image includes a baked-in [humanmade/S3-Uploads](https://github.com/humanmade/S3-Uploads) mu-plugin (`dailey-media-offload.php`) that picks these up automatically: all uploads go to the public R2 bucket and are served from `assets.dailey.cloud` instead of the pod volume.
+
+- **No config needed** — it activates when `S3_PUBLIC_BUCKET_NAME` is present.
+- **No-ops silently** when public storage isn't enabled.
+- **Kill switch**: `dailey env set WP_OFFLOAD_MEDIA=false` to disable without rebuilding.
+
+The mu-plugin lives in `/var/www/dailey-mu-plugins/` (outside `wp-content`) so the Longhorn volume mount can't shadow it, and WordPress is pointed at that dir via `WPMU_PLUGIN_DIR` injected through `WORDPRESS_CONFIG_EXTRA` in the entrypoint.
+
 ## Files
-- `Dockerfile` — `FROM wordpress:6-apache` + `EXPOSE 80` + pre-populated webroot (instant boot).
-- `dailey-entrypoint.sh` — maps `DB_*` → `WORDPRESS_DB_*`, then runs the stock entrypoint.
+- `Dockerfile` — `FROM wordpress:6-apache` + `EXPOSE 80` + pre-populated webroot (instant boot) + baked S3-Uploads.
+- `dailey-entrypoint.sh` — maps `DB_*` → `WORDPRESS_DB_*`, injects `WPMU_PLUGIN_DIR`, then runs the stock entrypoint.
+- `dailey-media-offload.php` — mu-plugin: auto-configures S3-Uploads from `S3_PUBLIC_*` env.
