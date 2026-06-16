@@ -1,6 +1,6 @@
 # WordPress on Dailey OS — deploy straight from GitHub. Production template.
 #
-# FOUR things make the stock image deploy cleanly on DOS:
+# FIVE things make the stock image deploy cleanly on DOS:
 #
 # 1. EXPOSE 80 is LOAD-BEARING. DOS's git/bundle deploy path parses the
 #    Dockerfile for an explicit `EXPOSE <port>` to decide the container's
@@ -25,6 +25,11 @@
 #    bucket and served from assets.dailey.cloud via the baked-in
 #    humanmade/S3-Uploads mu-plugin. No-ops when S3_PUBLIC_* is absent.
 #    Kill switch: set env WP_OFFLOAD_MEDIA=false.
+#
+# 5. Upload limits. Stock wordpress:apache ships PHP upload_max_filesize=2M /
+#    post_max_size=8M. A bigger theme/plugin/media upload exceeds post_max_size,
+#    PHP drops the whole POST body (nonce included), and WP shows the misleading
+#    "The link you followed has expired." dailey-uploads.ini raises these to 128M.
 
 # --- Build stage: S3-Uploads (media offload engine) + its vendor deps -------
 # Pinned release; recent versions ship no prebuilt zip, so compose it here.
@@ -46,6 +51,10 @@ RUN cp -a /usr/src/wordpress/. /var/www/html/ \
 COPY --from=s3uploads /s3-uploads /var/www/dailey-mu-plugins/s3-uploads
 COPY dailey-media-offload.php /var/www/dailey-mu-plugins/dailey-media-offload.php
 RUN chown -R www-data:www-data /var/www/dailey-mu-plugins
+
+# Raise PHP upload limits above the stock 2M/8M (see point 5 above). Loaded last
+# (zz- prefix) so it overrides the base image's conf.d defaults.
+COPY dailey-uploads.ini /usr/local/etc/php/conf.d/zz-dailey-uploads.ini
 
 COPY dailey-entrypoint.sh /usr/local/bin/dailey-entrypoint.sh
 RUN chmod +x /usr/local/bin/dailey-entrypoint.sh
