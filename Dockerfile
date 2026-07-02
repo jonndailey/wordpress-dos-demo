@@ -53,6 +53,15 @@ FROM wordpress:7.0-php8.3-apache
 
 EXPOSE 80
 
+# wp-cli — required by the Dailey OS WordPress lifecycle (snapshot/restore/clone
+# exec `wp db export|import` and `wp search-replace` INSIDE this pod). The stock
+# wordpress:apache image has no wp-cli. We copy the phar from wordpress:cli and
+# wrap it so plain `wp ...` always runs with --allow-root (pod execs run as root).
+COPY --from=wordpress:cli /usr/local/bin/wp /usr/local/bin/wp-cli.phar
+RUN printf '#!/bin/sh\nexec php /usr/local/bin/wp-cli.phar --allow-root "$@"\n' > /usr/local/bin/wp \
+ && chmod +x /usr/local/bin/wp /usr/local/bin/wp-cli.phar \
+ && wp --info >/dev/null 2>&1 || true
+
 # Pre-populate the webroot at build time so first-boot is instant.
 RUN cp -a /usr/src/wordpress/. /var/www/html/ \
  && chown -R www-data:www-data /var/www/html
