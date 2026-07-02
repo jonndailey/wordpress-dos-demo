@@ -10,4 +10,8 @@
 : "${WORDPRESS_DB_USER:=${DB_USER}}"
 : "${WORDPRESS_DB_PASSWORD:=${DB_PASSWORD}}"
 export WORDPRESS_DB_HOST WORDPRESS_DB_NAME WORDPRESS_DB_USER WORDPRESS_DB_PASSWORD
-exec php /usr/local/bin/wp-cli.phar --allow-root "$@"
+# memory_limit=512M gives search-replace / db import/export headroom on large
+# sites. The lifecycle engine used to pass `php -d memory_limit=512M` itself, but
+# it now calls `wp` directly (calling `php <this-wrapper>` is a silent no-op), so
+# the bump lives here for every wp invocation.
+exec php -d memory_limit=512M /usr/local/bin/wp-cli.phar --allow-root "$@"
