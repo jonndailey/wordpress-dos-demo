@@ -60,12 +60,11 @@ EXPOSE 80
 # `wp db export|import|query` shell out to the mysql/mysqldump CLIENT binaries,
 # which the Apache image also lacks — install default-mysql-client for them.
 COPY --from=wordpress:cli /usr/local/bin/wp /usr/local/bin/wp-cli.phar
+COPY dailey-wp-wrapper.sh /usr/local/bin/wp
 RUN apt-get update \
  && apt-get install -y --no-install-recommends default-mysql-client \
  && rm -rf /var/lib/apt/lists/* \
- && printf '#!/bin/sh\nexec php /usr/local/bin/wp-cli.phar --allow-root "$@"\n' > /usr/local/bin/wp \
- && chmod +x /usr/local/bin/wp /usr/local/bin/wp-cli.phar \
- && wp --info >/dev/null 2>&1 || true
+ && chmod +x /usr/local/bin/wp /usr/local/bin/wp-cli.phar
 
 # Pre-populate the webroot at build time so first-boot is instant.
 RUN cp -a /usr/src/wordpress/. /var/www/html/ \
