@@ -62,6 +62,10 @@ EXPOSE 80
 COPY --from=wordpress:cli /usr/local/bin/wp /usr/local/bin/wp-cli.phar
 COPY dailey-wp-wrapper.sh /usr/local/bin/wp
 RUN apt-get update \
+ # Upgrade the base OS packages: a fresh pull of wordpress:7.0-php8.3-apache still ships
+ # Debian packages with published CVE fixes (perl, libraw, imagemagick, glib). Without this
+ # line a --no-cache rebuild closes nothing (verified 2026-09-29: 8 of 9 fixable criticals remained).
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends default-mysql-client \
  && rm -rf /var/lib/apt/lists/* \
  && chmod +x /usr/local/bin/wp /usr/local/bin/wp-cli.phar
