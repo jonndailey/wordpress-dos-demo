@@ -42,9 +42,22 @@
 # --- Build stage: S3-Uploads (media offload engine) + its vendor deps -------
 # Pinned release; recent versions ship no prebuilt zip, so compose it here.
 FROM composer:2 AS s3uploads
+# CVE-2026-54133: S3-Uploads 3.0.13's composer.lock pins mtdowling/jmespath.php
+# 2.8.0 (via aws/aws-sdk-php); raise just that package to the fixed 2.9.1+ line.
+# Partial update (--with): every other locked package stays exactly as locked;
+# the build fails if anything besides jmespath moved. Platform reqs are ignored
+# only because the LOCKED require-dev set (phpunit/psalm/pcov, never installed)
+# needs ext-pcov and php>=8.4; jmespath 2.9.x itself needs php ^7.2.5 || ^8.0,
+# which the php8.3 runtime satisfies.
 RUN git clone --depth 1 --branch 3.0.13 https://github.com/humanmade/S3-Uploads.git /s3-uploads \
  && cd /s3-uploads \
- && composer install --no-dev --no-interaction --optimize-autoloader
+ && composer install --no-dev --no-interaction --optimize-autoloader \
+ && composer show --no-dev --locked | grep -v '^mtdowling/jmespath.php ' > /tmp/locked-before.txt \
+ && composer update mtdowling/jmespath.php --with 'mtdowling/jmespath.php:^2.9.1' \
+      --no-dev --no-interaction --optimize-autoloader \
+      --ignore-platform-req=php --ignore-platform-req=ext-pcov \
+ && composer show --no-dev --locked | grep -v '^mtdowling/jmespath.php ' | diff /tmp/locked-before.txt - \
+ && composer show --no-dev --locked mtdowling/jmespath.php | grep -E '^versions'
 
 # WP core version is pinned by this tag (immutable-core model — see point 6).
 # major.minor pin: rebuilds pull 7.0.x security patches; core stays stable
